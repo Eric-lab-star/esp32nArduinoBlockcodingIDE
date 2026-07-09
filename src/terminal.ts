@@ -10,7 +10,7 @@ export function createTerminal(parent: HTMLElement): { term: Terminal; fit: FitA
     cursorBlink: true,
     convertEol: true,
     theme: {
-      background: '#16181d',
+      background: '#101318',
       foreground: '#d8dee9',
       cursor: '#88c0d0',
       selectionBackground: '#3b4252',

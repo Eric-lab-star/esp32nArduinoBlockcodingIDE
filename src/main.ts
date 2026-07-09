@@ -5,6 +5,7 @@ import { definePicoBlocks, toolbox } from './blocks';
 import { createEditor } from './editor';
 import { createTerminal } from './terminal';
 import { PicoSerial } from './serial';
+import { toast, confirmDialog } from './ui';
 import './style.css';
 
 type Mode = 'block' | 'text';
@@ -43,21 +44,21 @@ const workspace = Blockly.inject('blockly-div', {
   renderer: 'zelos',
   // 외부 CDN 대신 로컬 미디어 사용 (오프라인 환경 지원)
   media: 'blockly-media/',
-  grid: { spacing: 24, length: 3, colour: '#2c313a', snap: true },
+  grid: { spacing: 24, length: 3, colour: '#232935', snap: true },
   zoom: { controls: true, wheel: true, startScale: 0.9 },
   trashcan: true,
   theme: Blockly.Theme.defineTheme('picoDark', {
     name: 'picoDark',
     base: Blockly.Themes.Zelos,
     componentStyles: {
-      workspaceBackgroundColour: '#1e222a',
-      toolboxBackgroundColour: '#16181d',
-      toolboxForegroundColour: '#d8dee9',
-      flyoutBackgroundColour: '#22262e',
-      flyoutForegroundColour: '#d8dee9',
-      flyoutOpacity: 0.95,
-      scrollbarColour: '#4c566a',
-      insertionMarkerColour: '#88c0d0',
+      workspaceBackgroundColour: '#161a21',
+      toolboxBackgroundColour: '#101318',
+      toolboxForegroundColour: '#a9b3c4',
+      flyoutBackgroundColour: '#1d222c',
+      flyoutForegroundColour: '#a9b3c4',
+      flyoutOpacity: 0.97,
+      scrollbarColour: '#3a4252',
+      insertionMarkerColour: '#62a0e8',
     },
   }),
 });
@@ -90,16 +91,32 @@ const btnConnect = $<HTMLButtonElement>('btn-connect');
 const btnRun = $<HTMLButtonElement>('btn-run');
 const btnStop = $<HTMLButtonElement>('btn-stop');
 const btnSave = $<HTMLButtonElement>('btn-save');
+const btnSoftReset = $<HTMLButtonElement>('btn-soft-reset');
 const statusEl = $('status');
 
+function setRunning(running: boolean): void {
+  btnRun.classList.toggle('running', running);
+  btnRun.disabled = running || !serial.connected;
+  btnRun.querySelector<HTMLElement>('.ic')!.hidden = running;
+  btnRun.querySelector<HTMLElement>('.spinner')!.hidden = !running;
+  btnRun.querySelector<HTMLElement>('.btn-label')!.textContent = running ? '실행 중' : '실행';
+}
+
 serial.onStateChange = (connected) => {
-  btnConnect.textContent = connected ? '🔌 연결 해제' : '🔌 보드 연결';
+  btnConnect.querySelector<HTMLElement>('.btn-label')!.textContent = connected
+    ? '연결 해제'
+    : '보드 연결';
+  btnConnect.classList.toggle('btn-primary', !connected);
   btnRun.disabled = !connected;
   btnStop.disabled = !connected;
   btnSave.disabled = !connected;
-  statusEl.textContent = connected ? '● 연결됨' : '● 연결 안 됨';
-  statusEl.className = connected ? 'status-connected' : 'status-disconnected';
-  if (!connected) term.writeln('\r\n\x1b[90m보드 연결이 해제되었습니다.\x1b[0m');
+  btnSoftReset.disabled = !connected;
+  statusEl.textContent = connected ? '연결됨' : '연결 안 됨';
+  statusEl.dataset.state = connected ? 'on' : 'off';
+  if (!connected) {
+    setRunning(false);
+    term.writeln('\r\n\x1b[90m보드 연결이 해제되었습니다.\x1b[0m');
+  }
 };
 
 if (!PicoSerial.supported) {
@@ -116,41 +133,58 @@ btnConnect.addEventListener('click', async () => {
   try {
     if (serial.connected) {
       await serial.disconnect();
+      toast('보드 연결이 해제되었습니다.');
     } else {
       await serial.connect();
+      toast('보드에 연결되었습니다.', 'success');
       term.writeln('\x1b[36m보드에 연결되었습니다. Enter를 누르면 >>> 프롬프트가 나타납니다.\x1b[0m');
     }
   } catch (e) {
     const msg = (e as Error).message;
     if (!msg.includes('No port selected')) {
+      toast(`연결 실패: ${msg}`, 'error');
       term.writeln(`\x1b[31m연결 실패: ${msg}\x1b[0m`);
     }
   }
 });
 
-btnRun.addEventListener('click', async () => {
+async function runCode(): Promise<void> {
+  if (!serial.connected || serial.busy) return;
   const code = mode === 'block' ? generateBlockCode() : editor.getCode();
   if (!code.trim()) {
-    term.writeln('\x1b[33m실행할 코드가 없습니다.\x1b[0m');
+    toast('실행할 코드가 없습니다.', 'error');
     return;
   }
   term.writeln('\r\n\x1b[36m─── 실행 시작 ───\x1b[0m');
-  btnRun.disabled = true;
+  setRunning(true);
   try {
     const { error } = await serial.run(
       code,
       (s) => term.write(s),
       (s) => term.write(`\x1b[31m${s}\x1b[0m`),
     );
-    term.writeln(
-      error.trim()
-        ? '\x1b[31m─── 오류로 종료됨 ───\x1b[0m'
-        : '\x1b[36m─── 실행 완료 ───\x1b[0m',
-    );
+    if (error.trim()) {
+      term.writeln('\x1b[31m─── 오류로 종료됨 ───\x1b[0m');
+      toast('실행 중 오류가 발생했습니다. 터미널을 확인하세요.', 'error');
+    } else {
+      term.writeln('\x1b[36m─── 실행 완료 ───\x1b[0m');
+    }
   } catch (e) {
-    term.writeln(`\x1b[31m실행 실패: ${(e as Error).message}\x1b[0m`);
+    const msg = (e as Error).message;
+    term.writeln(`\x1b[31m실행 실패: ${msg}\x1b[0m`);
+    toast(`실행 실패: ${msg}`, 'error');
   } finally {
-    btnRun.disabled = !serial.connected;
+    setRunning(false);
+  }
+}
+
+btnRun.addEventListener('click', runCode);
+
+// Ctrl+Enter(⌘+Enter)로 실행
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    void runCode();
   }
 });
 
@@ -158,28 +192,62 @@ btnStop.addEventListener('click', () => {
   serial.interrupt().catch(() => {});
 });
 
+btnSoftReset.addEventListener('click', async () => {
+  if (serial.busy) {
+    toast('실행 중에는 재시작할 수 없습니다. 먼저 정지하세요.', 'error');
+    return;
+  }
+  try {
+    await serial.write('\r\x04'); // friendly REPL에서 Ctrl-D = 소프트 리셋
+    toast('보드를 소프트 리셋했습니다.');
+  } catch (e) {
+    toast((e as Error).message, 'error');
+  }
+});
+
+$('btn-term-clear').addEventListener('click', () => term.clear());
+
 btnSave.addEventListener('click', async () => {
   const code = mode === 'block' ? generateBlockCode() : editor.getCode();
   if (!code.trim()) {
-    term.writeln('\x1b[33m저장할 코드가 없습니다.\x1b[0m');
+    toast('저장할 코드가 없습니다.', 'error');
     return;
   }
-  if (
-    !confirm(
-      '현재 코드를 보드의 main.py로 저장할까요?\n저장하면 보드 전원을 켤 때마다 자동으로 실행됩니다.',
-    )
-  ) {
-    return;
-  }
+  const ok = await confirmDialog({
+    title: 'main.py로 저장',
+    body: '현재 코드를 보드의 main.py로 저장할까요?\n저장하면 보드 전원을 켤 때마다 자동으로 실행됩니다.',
+    confirmText: '저장',
+  });
+  if (!ok) return;
   btnSave.disabled = true;
   try {
     await serial.saveFile('main.py', code);
-    term.writeln('\r\n\x1b[32mmain.py 저장 완료! 보드를 다시 켜면 자동 실행됩니다.\x1b[0m');
+    toast('main.py 저장 완료! 보드를 다시 켜면 자동 실행됩니다.', 'success');
+    term.writeln('\r\n\x1b[32mmain.py 저장 완료.\x1b[0m');
   } catch (e) {
+    toast((e as Error).message, 'error');
     term.writeln(`\r\n\x1b[31m${(e as Error).message}\x1b[0m`);
   } finally {
     btnSave.disabled = !serial.connected;
   }
+});
+
+// ---------- 시작 가이드 모달 ----------
+const helpModal = $('help-modal');
+$('btn-help').addEventListener('click', () => {
+  helpModal.hidden = false;
+  requestAnimationFrame(() => helpModal.classList.add('show'));
+});
+const closeHelp = () => {
+  helpModal.classList.remove('show');
+  setTimeout(() => (helpModal.hidden = true), 180);
+};
+$('help-close').addEventListener('click', closeHelp);
+helpModal.addEventListener('click', (e) => {
+  if (e.target === helpModal) closeHelp();
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !helpModal.hidden) closeHelp();
 });
 
 // ---------- 모드 전환 ----------
@@ -190,6 +258,7 @@ const textPane = $('text-pane');
 const modeBlockBtn = $<HTMLButtonElement>('mode-block');
 const modeTextBtn = $<HTMLButtonElement>('mode-text');
 const previewEl = $('preview-code');
+const blockHint = $('block-hint');
 
 function applyMode(next: Mode): void {
   mode = next;
@@ -209,20 +278,18 @@ modeBlockBtn.addEventListener('click', () => {
   if (mode !== 'block') applyMode('block');
 });
 
-modeTextBtn.addEventListener('click', () => {
+modeTextBtn.addEventListener('click', async () => {
   if (mode === 'text') return;
   const generated = generateBlockCode();
   // 블록에서 만든 코드를 텍스트 편집기로 가져갈지 선택 (블록→텍스트는 단방향)
   if (generated.trim() && generated !== editor.getCode()) {
-    if (
-      confirm(
-        '블록에서 생성된 코드를 텍스트 편집기로 복사할까요?\n' +
-          '[확인] 텍스트 편집기의 기존 코드를 블록 코드로 대체\n' +
-          '[취소] 기존 텍스트 코드를 그대로 유지',
-      )
-    ) {
-      editor.setCode(generated);
-    }
+    const copy = await confirmDialog({
+      title: '텍스트 코딩으로 전환',
+      body: '블록에서 생성된 파이썬 코드를 텍스트 편집기로 가져올까요?\n가져오면 텍스트 편집기의 기존 코드가 대체됩니다.',
+      confirmText: '코드 가져오기',
+      cancelText: '기존 코드 유지',
+    });
+    if (copy) editor.setCode(generated);
   }
   applyMode('text');
 });
@@ -231,8 +298,24 @@ modeTextBtn.addEventListener('click', () => {
 let previewTimer: ReturnType<typeof setTimeout> | undefined;
 
 function updatePreview(): void {
-  previewEl.textContent = generateBlockCode() || '# 블록을 조립하면 파이썬 코드가 여기에 표시됩니다';
+  const code = generateBlockCode();
+  previewEl.textContent = code || '# 블록을 조립하면\n# 파이썬 코드가 여기에 표시됩니다';
+  blockHint.hidden = workspace.getAllBlocks(false).length > 0;
 }
+
+$('btn-copy-preview').addEventListener('click', async () => {
+  const code = generateBlockCode();
+  if (!code.trim()) {
+    toast('복사할 코드가 없습니다.', 'error');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(code);
+    toast('코드를 클립보드에 복사했습니다.', 'success');
+  } catch {
+    toast('클립보드 복사에 실패했습니다.', 'error');
+  }
+});
 
 workspace.addChangeListener((event) => {
   if (event.isUiEvent) return;
@@ -248,6 +331,33 @@ workspace.addChangeListener((event) => {
       /* 저장 공간 부족 등은 무시 */
     }
   }, 250);
+});
+
+// ---------- 터미널 크기 조절 스플리터 ----------
+const splitter = $('splitter');
+const terminalPane = $('terminal-pane');
+
+splitter.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  splitter.setPointerCapture(e.pointerId);
+  splitter.classList.add('dragging');
+
+  const onMove = (ev: PointerEvent) => {
+    const h = Math.min(
+      Math.max(window.innerHeight - ev.clientY, 110),
+      Math.round(window.innerHeight * 0.7),
+    );
+    terminalPane.style.height = `${h}px`;
+    fit.fit();
+    if (mode === 'block') Blockly.svgResize(workspace);
+  };
+  const onUp = () => {
+    splitter.classList.remove('dragging');
+    splitter.removeEventListener('pointermove', onMove);
+    splitter.removeEventListener('pointerup', onUp);
+  };
+  splitter.addEventListener('pointermove', onMove);
+  splitter.addEventListener('pointerup', onUp);
 });
 
 applyMode(mode);
