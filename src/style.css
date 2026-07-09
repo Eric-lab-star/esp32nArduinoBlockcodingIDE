@@ -1,0 +1,215 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  font-family: 'Pretendard', 'Noto Sans KR', -apple-system, sans-serif;
+  background: #1e222a;
+  color: #d8dee9;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ---------- 툴바 ---------- */
+#toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: #16181d;
+  border-bottom: 1px solid #2c313a;
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#logo {
+  font-weight: 700;
+  font-size: 16px;
+  margin-right: 6px;
+}
+
+#mode-switch {
+  display: flex;
+  background: #2c313a;
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.mode-btn {
+  border: none;
+  background: transparent;
+  color: #9aa4b2;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mode-btn.active {
+  background: #4c86c7;
+  color: #fff;
+}
+
+.btn {
+  border: 1px solid #3b4252;
+  background: #2c313a;
+  color: #d8dee9;
+  padding: 7px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(1.2);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #4c86c7;
+  border-color: #4c86c7;
+  color: #fff;
+}
+
+.btn-run {
+  background: #3f9e5f;
+  border-color: #3f9e5f;
+  color: #fff;
+}
+
+.btn-stop {
+  background: #bf5b62;
+  border-color: #bf5b62;
+  color: #fff;
+}
+
+.btn-link {
+  background: transparent;
+  border-color: transparent;
+  color: #88c0d0;
+}
+
+#unsupported-banner {
+  background: #7a4a1e;
+  color: #ffe9c7;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+/* ---------- 작업 영역 ---------- */
+#workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+#block-pane,
+#text-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+#block-pane[hidden],
+#text-pane[hidden] {
+  display: none;
+}
+
+#blockly-div {
+  flex: 1;
+  min-width: 0;
+}
+
+#code-preview {
+  width: 320px;
+  border-left: 1px solid #2c313a;
+  background: #16181d;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#preview-code {
+  flex: 1;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  font-family: 'JetBrains Mono', 'D2Coding', Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #a3be8c;
+  white-space: pre;
+}
+
+#editor-div {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+#editor-div .cm-editor {
+  height: 100%;
+}
+
+/* ---------- 터미널 ---------- */
+#terminal-pane {
+  height: 220px;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #2c313a;
+  background: #16181d;
+}
+
+.pane-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9aa4b2;
+  letter-spacing: 0.03em;
+  background: #16181d;
+  border-bottom: 1px solid #2c313a;
+}
+
+#terminal-div {
+  flex: 1;
+  min-height: 0;
+  padding: 4px 8px;
+}
+
+.status-connected {
+  color: #a3be8c;
+}
+
+.status-disconnected {
+  color: #bf616a;
+}
+
+@media (max-width: 900px) {
+  #code-preview {
+    display: none;
+  }
+}

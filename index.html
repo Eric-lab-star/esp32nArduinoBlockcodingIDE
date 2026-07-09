@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>피코 파이썬 IDE — 라즈베리파이 피코 블록/텍스트 코딩</title>
+  </head>
+  <body>
+    <div id="app">
+      <header id="toolbar">
+        <div class="toolbar-group">
+          <span id="logo">🐍 피코 파이썬 IDE</span>
+          <div id="mode-switch" role="tablist" aria-label="편집 모드">
+            <button id="mode-block" class="mode-btn active" role="tab">🧩 블록 코딩</button>
+            <button id="mode-text" class="mode-btn" role="tab">⌨️ 텍스트 코딩</button>
+          </div>
+        </div>
+        <div class="toolbar-group">
+          <button id="btn-connect" class="btn btn-primary">🔌 보드 연결</button>
+          <button id="btn-run" class="btn btn-run" disabled>▶ 실행</button>
+          <button id="btn-stop" class="btn btn-stop" disabled>⏹ 정지</button>
+          <button id="btn-save" class="btn" disabled title="보드에 main.py로 저장하면 전원을 켤 때 자동 실행됩니다">💾 main.py 저장</button>
+          <a id="firmware-link" class="btn btn-link" href="https://micropython.org/download/RPI_PICO/" target="_blank" rel="noopener" title="피코에 MicroPython 펌웨어(UF2)를 먼저 설치해야 합니다">펌웨어 받기 ↗</a>
+        </div>
+      </header>
+      <div id="unsupported-banner" hidden>
+        ⚠️ 이 브라우저는 Web Serial을 지원하지 않습니다. 데스크톱용 <b>Chrome</b> 또는 <b>Edge</b> 브라우저를 사용해 주세요.
+      </div>
+      <main id="workspace">
+        <section id="block-pane">
+          <div id="blockly-div"></div>
+          <aside id="code-preview">
+            <div class="pane-title">생성된 파이썬 코드</div>
+            <pre id="preview-code"></pre>
+          </aside>
+        </section>
+        <section id="text-pane" hidden>
+          <div id="editor-div"></div>
+        </section>
+      </main>
+      <section id="terminal-pane">
+        <div class="pane-title">
+          <span>터미널 (MicroPython REPL)</span>
+          <span id="status" class="status-disconnected">● 연결 안 됨</span>
+        </div>
+        <div id="terminal-div"></div>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
