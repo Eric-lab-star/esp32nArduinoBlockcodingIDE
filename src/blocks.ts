@@ -8,8 +8,6 @@
 import * as Blockly from 'blockly';
 import { pythonGenerator, Order, PythonGenerator } from 'blockly/python';
 
-const PICO_HUE = 190;
-
 /** 생성기 내부 definitions_ 에 안전하게 접근하기 위한 헬퍼 */
 function addDefinition(generator: PythonGenerator, key: string, line: string): void {
   (generator as unknown as { definitions_: Record<string, string> }).definitions_[key] = line;
@@ -36,7 +34,7 @@ export function definePicoBlocks(): void {
       ],
       previousStatement: null,
       nextStatement: null,
-      colour: PICO_HUE,
+      style: 'pico_blocks',
       tooltip: '피코 보드의 내장 LED를 켜거나 끕니다.',
     },
     {
@@ -44,7 +42,7 @@ export function definePicoBlocks(): void {
       message0: '내장 LED 반전하기',
       previousStatement: null,
       nextStatement: null,
-      colour: PICO_HUE,
+      style: 'pico_blocks',
       tooltip: '내장 LED 상태를 반대로 바꿉니다 (켜짐↔꺼짐).',
     },
     {
@@ -63,7 +61,7 @@ export function definePicoBlocks(): void {
       ],
       previousStatement: null,
       nextStatement: null,
-      colour: PICO_HUE,
+      style: 'pico_blocks',
       tooltip: '지정한 GPIO 핀을 HIGH 또는 LOW로 출력합니다.',
     },
     {
@@ -71,7 +69,7 @@ export function definePicoBlocks(): void {
       message0: 'GP %1 핀 디지털 입력값',
       args0: [{ type: 'field_number', name: 'PIN', value: 0, min: 0, max: 28, precision: 1 }],
       output: 'Number',
-      colour: PICO_HUE,
+      style: 'pico_blocks',
       tooltip: '지정한 GPIO 핀의 값을 읽습니다 (0 또는 1, 내부 풀다운).',
     },
     {
@@ -83,7 +81,7 @@ export function definePicoBlocks(): void {
       ],
       previousStatement: null,
       nextStatement: null,
-      colour: PICO_HUE,
+      style: 'pico_blocks',
       tooltip: '지정한 핀에 PWM 신호를 출력합니다 (0~100%). LED 밝기, 모터 속도 등에 사용합니다.',
     },
     {
@@ -101,14 +99,14 @@ export function definePicoBlocks(): void {
         },
       ],
       output: 'Number',
-      colour: PICO_HUE,
+      style: 'pico_blocks',
       tooltip: '아날로그 핀의 값을 읽습니다 (0~65535).',
     },
     {
       type: 'pico_temp',
       message0: '내장 온도센서 값 (℃)',
       output: 'Number',
-      colour: PICO_HUE,
+      style: 'pico_blocks',
       tooltip: 'RP2040/RP2350 칩 내장 온도센서의 값을 섭씨로 읽습니다.',
     },
     {
@@ -117,7 +115,7 @@ export function definePicoBlocks(): void {
       args0: [{ type: 'input_value', name: 'SECONDS', check: 'Number' }],
       previousStatement: null,
       nextStatement: null,
-      colour: PICO_HUE,
+      style: 'pico_blocks',
       tooltip: '지정한 시간(초)만큼 기다립니다. 소수점도 가능합니다 (예: 0.5).',
     },
     {
@@ -125,7 +123,7 @@ export function definePicoBlocks(): void {
       message0: '계속 반복하기 %1 %2',
       args0: [{ type: 'input_dummy' }, { type: 'input_statement', name: 'DO' }],
       previousStatement: null,
-      colour: '#b45f9d',
+      style: 'flow_blocks',
       tooltip: '안의 블록을 영원히 반복합니다 (while True). 정지 버튼으로 멈출 수 있습니다.',
     },
   ]);
@@ -213,7 +211,7 @@ export const toolbox = {
     {
       kind: 'category',
       name: '피코',
-      colour: `${PICO_HUE}`,
+      categorystyle: 'pico_category',
       contents: [
         { kind: 'block', type: 'pico_onboard_led' },
         { kind: 'block', type: 'pico_onboard_led_toggle' },
@@ -229,7 +227,7 @@ export const toolbox = {
     {
       kind: 'category',
       name: '논리',
-      colour: '%{BKY_LOGIC_HUE}',
+      categorystyle: 'logic_category',
       contents: [
         { kind: 'block', type: 'controls_if' },
         { kind: 'block', type: 'logic_compare' },
@@ -241,7 +239,7 @@ export const toolbox = {
     {
       kind: 'category',
       name: '반복',
-      colour: '%{BKY_LOOPS_HUE}',
+      categorystyle: 'loop_category',
       contents: [
         { kind: 'block', type: 'controls_repeat_ext', inputs: { TIMES: num(10) } },
         { kind: 'block', type: 'controls_whileUntil' },
@@ -256,7 +254,7 @@ export const toolbox = {
     {
       kind: 'category',
       name: '수학',
-      colour: '%{BKY_MATH_HUE}',
+      categorystyle: 'math_category',
       contents: [
         { kind: 'block', type: 'math_number' },
         { kind: 'block', type: 'math_arithmetic', inputs: { A: num(1), B: num(1) } },
@@ -268,14 +266,14 @@ export const toolbox = {
     {
       kind: 'category',
       name: '텍스트',
-      colour: '%{BKY_TEXTS_HUE}',
+      categorystyle: 'text_category',
       contents: [
         { kind: 'block', type: 'text' },
         { kind: 'block', type: 'text_join' },
         { kind: 'block', type: 'text_print' },
       ],
     },
-    { kind: 'category', name: '변수', colour: '%{BKY_VARIABLES_HUE}', custom: 'VARIABLE' },
-    { kind: 'category', name: '함수', colour: '%{BKY_PROCEDURES_HUE}', custom: 'PROCEDURE' },
+    { kind: 'category', name: '변수', categorystyle: 'variable_category', custom: 'VARIABLE' },
+    { kind: 'category', name: '함수', categorystyle: 'procedure_category', custom: 'PROCEDURE' },
   ],
 };

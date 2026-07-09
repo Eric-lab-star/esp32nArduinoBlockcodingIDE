@@ -2,6 +2,7 @@ import * as Blockly from 'blockly';
 import { pythonGenerator } from 'blockly/python';
 import * as Ko from 'blockly/msg/ko';
 import { definePicoBlocks, toolbox } from './blocks';
+import { picoTheme, registerEntryRenderer } from './theme';
 import { createEditor } from './editor';
 import { createTerminal } from './terminal';
 import { PicoSerial } from './serial';
@@ -41,26 +42,13 @@ pythonGenerator.INFINITE_LOOP_TRAP = null;
 
 const workspace = Blockly.inject('blockly-div', {
   toolbox,
-  renderer: 'zelos',
+  renderer: registerEntryRenderer(),
   // 외부 CDN 대신 로컬 미디어 사용 (오프라인 환경 지원)
   media: 'blockly-media/',
   grid: { spacing: 24, length: 3, colour: '#2a2a2a', snap: true },
   zoom: { controls: true, wheel: true, startScale: 0.9 },
   trashcan: true,
-  theme: Blockly.Theme.defineTheme('picoVscodeDark', {
-    name: 'picoVscodeDark',
-    base: Blockly.Themes.Zelos,
-    componentStyles: {
-      workspaceBackgroundColour: '#1e1e1e',
-      toolboxBackgroundColour: '#252526',
-      toolboxForegroundColour: '#cccccc',
-      flyoutBackgroundColour: '#2d2d30',
-      flyoutForegroundColour: '#cccccc',
-      flyoutOpacity: 0.97,
-      scrollbarColour: '#4f4f4f',
-      insertionMarkerColour: '#3794ff',
-    },
-  }),
+  theme: picoTheme,
 });
 
 function generateBlockCode(): string {

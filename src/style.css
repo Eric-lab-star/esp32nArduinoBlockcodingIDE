@@ -721,6 +721,40 @@ button.status-item:hover {
   color: var(--vsc-text-dim);
 }
 
+/* ---------- Blockly 툴박스 (엔트리 느낌으로) ---------- */
+.blocklyToolboxCategoryGroup {
+  padding: 6px 0;
+}
+
+.blocklyToolboxCategory {
+  border-left-width: 5px !important;
+  border-radius: 0 6px 6px 0;
+  margin: 3px 8px 3px 0;
+  padding: 4px 2px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.blocklyToolboxCategory:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.blocklyToolboxCategoryContainer[aria-selected='true'] .blocklyToolboxCategory,
+.blocklyToolboxSelected {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.blocklyToolboxCategoryLabel {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* 블록 텍스트가 한글 굵은 글꼴로 또렷하게 보이도록 */
+.blocklyText {
+  font-weight: 700 !important;
+}
+
 /* ---------- 스크롤바 (VS Code 스타일) ---------- */
 #preview-code::-webkit-scrollbar,
 .modal-body::-webkit-scrollbar {
