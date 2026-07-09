@@ -2,6 +2,39 @@
 
 export type ToastType = 'info' | 'success' | 'error';
 
+/**
+ * 열려 있는 모달들의 Escape 처리기 스택. 하나의 전역 리스너가 Escape 시
+ * 맨 위(마지막에 열린) 모달만 닫는다 — 겹친 모달이 한 번에 전부 닫히는 것을 방지.
+ */
+const escapeStack: Array<() => void> = [];
+let escapeListenerAttached = false;
+
+function ensureEscapeListener(): void {
+  if (escapeListenerAttached) return;
+  escapeListenerAttached = true;
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && escapeStack.length) {
+      e.stopPropagation();
+      escapeStack[escapeStack.length - 1]();
+    }
+  });
+}
+
+/** 모달을 Escape 스택에 등록한다. 반환된 함수를 닫을 때 호출해 등록을 해제한다. */
+export function pushEscapeHandler(onEscape: () => void): () => void {
+  ensureEscapeListener();
+  escapeStack.push(onEscape);
+  return () => {
+    const i = escapeStack.lastIndexOf(onEscape);
+    if (i >= 0) escapeStack.splice(i, 1);
+  };
+}
+
+/** 현재 화면에 표시 중인 모달이 있는지 (모달 위에서의 단축키 실행 차단용) */
+export function isModalOpen(): boolean {
+  return document.querySelector('.modal-backdrop.show') !== null;
+}
+
 let toastContainer: HTMLElement | null = null;
 
 export function toast(message: string, type: ToastType = 'info'): void {
@@ -59,16 +92,13 @@ export function confirmDialog(opts: ConfirmOptions): Promise<boolean> {
     modal.append(title, body, actions);
     backdrop.appendChild(modal);
 
+    const popEscape = pushEscapeHandler(() => done(false));
     const done = (value: boolean) => {
-      document.removeEventListener('keydown', onKey);
+      popEscape();
       backdrop.classList.remove('show');
       setTimeout(() => backdrop.remove(), 180);
       resolve(value);
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') done(false);
-    };
-    document.addEventListener('keydown', onKey);
     backdrop.addEventListener('click', (e) => {
       if (e.target === backdrop) done(false);
     });

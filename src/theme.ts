@@ -82,10 +82,11 @@ export function registerEntryRenderer(): string {
     }) {
       makeConstants_() {
         const c = super.makeConstants_();
-        // 엔트리 블록처럼: 모서리는 덜 둥글게, 연결 홈은 작게
+        // 엔트리 블록처럼: 모서리는 덜 둥글게, 연결 홈은 작게.
+        // Blockly 내부 상수명이 향후 바뀌어 값이 없으면 NaN이 되지 않도록 원본을 유지한다.
         c.CORNER_RADIUS = 3;
-        c.NOTCH_WIDTH = Math.round(c.NOTCH_WIDTH * 0.78);
-        c.NOTCH_HEIGHT = Math.round(c.NOTCH_HEIGHT * 0.85);
+        if (typeof c.NOTCH_WIDTH === 'number') c.NOTCH_WIDTH = Math.round(c.NOTCH_WIDTH * 0.78);
+        if (typeof c.NOTCH_HEIGHT === 'number') c.NOTCH_HEIGHT = Math.round(c.NOTCH_HEIGHT * 0.85);
         return c;
       }
     }
@@ -95,7 +96,9 @@ export function registerEntryRenderer(): string {
       EntryRenderer as unknown as Parameters<typeof Blockly.blockRendering.register>[1],
     );
     return 'pico_entry';
-  } catch {
+  } catch (e) {
+    // 등록 실패 시 기본 zelos로 폴백하되, 조용한 시각 회귀가 되지 않도록 경고를 남긴다.
+    console.warn('엔트리 렌더러 등록 실패, 기본 렌더러로 대체합니다:', e);
     return 'zelos';
   }
 }

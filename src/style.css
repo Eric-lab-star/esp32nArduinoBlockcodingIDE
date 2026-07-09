@@ -407,6 +407,8 @@ body {
   cursor: row-resize;
   background: var(--vsc-panel-border);
   transition: background 0.15s;
+  /* 포인터 제스처를 이 요소가 소유해 터치 스크롤이 드래그를 가로채지 않게 한다 */
+  touch-action: none;
 }
 
 #splitter:hover,

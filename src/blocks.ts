@@ -143,22 +143,19 @@ export function definePicoBlocks(): void {
     return 'led_onboard.toggle()\n';
   };
 
+  // 핀 정의를 서두로 호이스팅하면 같은 GP핀을 출력·입력 블록에 함께 쓸 때
+  // 마지막 생성자가 핀 모드를 덮어써 다른 블록이 조용히 무효화된다.
+  // 그래서 사용 지점마다 올바른 모드로 Pin을 생성한다(MicroPython 표준 관용구).
   forBlock['pico_digital_write'] = (block, generator) => {
     importMachine(generator);
     const pin = block.getFieldValue('PIN');
-    addDefinition(generator, `def_pin_out_${pin}`, `pin_out_${pin} = Pin(${pin}, Pin.OUT)`);
-    return `pin_out_${pin}.value(${block.getFieldValue('VALUE')})\n`;
+    return `Pin(${pin}, Pin.OUT).value(${block.getFieldValue('VALUE')})\n`;
   };
 
   forBlock['pico_digital_read'] = (block, generator) => {
     importMachine(generator);
     const pin = block.getFieldValue('PIN');
-    addDefinition(
-      generator,
-      `def_pin_in_${pin}`,
-      `pin_in_${pin} = Pin(${pin}, Pin.IN, Pin.PULL_DOWN)`,
-    );
-    return [`pin_in_${pin}.value()`, Order.FUNCTION_CALL];
+    return [`Pin(${pin}, Pin.IN, Pin.PULL_DOWN).value()`, Order.FUNCTION_CALL];
   };
 
   forBlock['pico_pwm'] = (block, generator) => {

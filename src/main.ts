@@ -5,8 +5,8 @@ import { definePicoBlocks, toolbox } from './blocks';
 import { picoTheme, registerEntryRenderer } from './theme';
 import { createEditor } from './editor';
 import { createTerminal } from './terminal';
-import { PicoSerial } from './serial';
-import { toast, confirmDialog } from './ui';
+import { PicoSerial, AbortError } from './serial';
+import { toast, confirmDialog, pushEscapeHandler, isModalOpen } from './ui';
 import './style.css';
 
 type Mode = 'block' | 'text';
@@ -34,6 +34,15 @@ print("끝!")
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
+/** localStorage 쓰기 — 용량 초과/비활성(프라이빗 모드 등)에서도 예외를 삼킨다. */
+function safeSetItem(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* 저장 공간 부족·정책 차단 등은 무시 */
+  }
+}
+
 // ---------- Blockly ----------
 Blockly.setLocale(Ko as unknown as { [key: string]: string });
 definePicoBlocks();
@@ -55,6 +64,11 @@ function generateBlockCode(): string {
   return pythonGenerator.workspaceToCode(workspace);
 }
 
+/** 현재 모드에서 실행/저장 대상이 되는 소스 코드 */
+function getActiveCode(): string {
+  return mode === 'block' ? generateBlockCode() : editor.getCode();
+}
+
 // 저장된 블록 복원
 try {
   const saved = localStorage.getItem(STORAGE.blocks);
@@ -67,7 +81,7 @@ try {
 const editor = createEditor(
   $('editor-div'),
   localStorage.getItem(STORAGE.code) ?? DEFAULT_CODE,
-  (code) => localStorage.setItem(STORAGE.code, code),
+  (code) => safeSetItem(STORAGE.code, code),
 );
 const { term, fit } = createTerminal($('terminal-div'));
 
@@ -84,30 +98,33 @@ const statusbar = $('statusbar');
 const statusEl = $('status');
 const statusConnectLabel = $('status-connect-label');
 
+/** 연결/실행 상태를 상태바 한 곳에서 표현 (state와 텍스트의 유일한 원천) */
+function renderStatus(running: boolean): void {
+  const connected = serial.connected;
+  statusbar.dataset.state = running ? 'run' : connected ? 'on' : 'off';
+  statusEl.textContent = running ? '실행 중' : connected ? '연결됨' : '연결 안 됨';
+}
+
 function setRunning(running: boolean): void {
-  btnRun.disabled = running || !serial.connected;
+  const connected = serial.connected;
+  // 실행 중에는 실행/저장/재시작을 잠그고 정지만 열어 둔다.
+  btnRun.disabled = running || !connected;
+  btnSave.disabled = running || !connected;
+  btnSoftReset.disabled = running || !connected;
+  btnStop.disabled = !connected;
   // SVG 요소는 hidden 속성이 동작하지 않으므로 display로 제어
   btnRun.querySelector<HTMLElement>('.ic')!.style.display = running ? 'none' : '';
   btnRun.querySelector<HTMLElement>('.spinner')!.hidden = !running;
-  statusbar.dataset.state = running ? 'run' : serial.connected ? 'on' : 'off';
-  statusEl.textContent = running ? '실행 중' : serial.connected ? '연결됨' : '연결 안 됨';
+  renderStatus(running);
 }
 
 serial.onStateChange = (connected) => {
   btnConnect.title = connected ? '보드 연결 해제' : '보드 연결';
   btnConnect.classList.toggle('connected', connected);
   statusConnectLabel.textContent = connected ? '연결 해제' : '보드 연결';
-  btnRun.disabled = !connected;
-  btnStop.disabled = !connected;
-  btnSave.disabled = !connected;
-  btnSoftReset.disabled = !connected;
-  statusbar.dataset.state = connected ? 'on' : 'off';
-  statusEl.textContent = connected ? '연결됨' : '연결 안 됨';
-  statusEl.dataset.state = connected ? 'on' : 'off';
-  if (!connected) {
-    setRunning(false);
-    term.writeln('\r\n\x1b[90m보드 연결이 해제되었습니다.\x1b[0m');
-  }
+  // 버튼 활성/상태 표시는 setRunning이 단일하게 관리한다(연결 직후는 실행 중 아님).
+  setRunning(false);
+  if (!connected) term.writeln('\r\n\x1b[90m보드 연결이 해제되었습니다.\x1b[0m');
 };
 
 if (!PicoSerial.supported) {
@@ -115,9 +132,13 @@ if (!PicoSerial.supported) {
   btnConnect.disabled = true;
 }
 
-// 터미널 키 입력 → 보드 (실행 중이 아닐 때만: friendly REPL 패스스루)
+// 터미널 키 입력 → 보드
+// - friendly REPL(비실행) 패스스루, 그리고 프로그램 실행 중(executing)에는 stdin으로 전달해
+//   input() 이 동작하게 한다. raw REPL 진입/코드 전송 중에는 스트림 오염을 막기 위해 차단.
 term.onData((data) => {
-  if (serial.connected && !serial.busy) serial.write(data).catch(() => {});
+  if (serial.connected && (!serial.busy || serial.acceptsStdin)) {
+    serial.write(data).catch(() => {});
+  }
 });
 
 async function toggleConnect(): Promise<void> {
@@ -143,8 +164,8 @@ btnConnect.addEventListener('click', toggleConnect);
 $('status-connect').addEventListener('click', toggleConnect);
 
 async function runCode(): Promise<void> {
-  if (!serial.connected || serial.busy) return;
-  const code = mode === 'block' ? generateBlockCode() : editor.getCode();
+  if (!serial.connected || serial.busy || isModalOpen()) return;
+  const code = getActiveCode();
   if (!code.trim()) {
     toast('실행할 코드가 없습니다.', 'error');
     return;
@@ -152,21 +173,27 @@ async function runCode(): Promise<void> {
   term.writeln('\r\n\x1b[36m─── 실행 시작 ───\x1b[0m');
   setRunning(true);
   try {
-    const { error } = await serial.run(
+    const { error, interrupted } = await serial.run(
       code,
       (s) => term.write(s),
       (s) => term.write(`\x1b[31m${s}\x1b[0m`),
     );
-    if (error.trim()) {
+    if (interrupted) {
+      term.writeln('\x1b[33m─── 정지됨 ───\x1b[0m');
+    } else if (error.trim()) {
       term.writeln('\x1b[31m─── 오류로 종료됨 ───\x1b[0m');
       toast('실행 중 오류가 발생했습니다. 터미널을 확인하세요.', 'error');
     } else {
       term.writeln('\x1b[36m─── 실행 완료 ───\x1b[0m');
     }
   } catch (e) {
-    const msg = (e as Error).message;
-    term.writeln(`\x1b[31m실행 실패: ${msg}\x1b[0m`);
-    toast(`실행 실패: ${msg}`, 'error');
+    if (e instanceof AbortError) {
+      term.writeln('\x1b[33m─── 정지됨 ───\x1b[0m');
+    } else {
+      const msg = (e as Error).message;
+      term.writeln(`\x1b[31m실행 실패: ${msg}\x1b[0m`);
+      toast(`실행 실패: ${msg}`, 'error');
+    }
   } finally {
     setRunning(false);
   }
@@ -174,11 +201,11 @@ async function runCode(): Promise<void> {
 
 btnRun.addEventListener('click', runCode);
 
-// Ctrl+Enter(⌘+Enter)로 실행
+// Ctrl+Enter(⌘+Enter)로 실행 (모달이 열려 있으면 무시)
 window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
-    void runCode();
+    if (!isModalOpen()) void runCode();
   }
 });
 
@@ -192,7 +219,10 @@ btnSoftReset.addEventListener('click', async () => {
     return;
   }
   try {
-    await serial.write('\r\x04'); // friendly REPL에서 Ctrl-D = 소프트 리셋
+    // 실행 중인 main.py가 있으면 먼저 Ctrl-C로 멈춘 뒤 Ctrl-D로 소프트 리셋한다.
+    await serial.write('\r\x03');
+    await new Promise((r) => setTimeout(r, 120));
+    await serial.write('\x04');
     toast('보드를 소프트 리셋했습니다.');
   } catch (e) {
     toast((e as Error).message, 'error');
@@ -202,7 +232,7 @@ btnSoftReset.addEventListener('click', async () => {
 $('btn-term-clear').addEventListener('click', () => term.clear());
 
 btnSave.addEventListener('click', async () => {
-  const code = mode === 'block' ? generateBlockCode() : editor.getCode();
+  const code = getActiveCode();
   if (!code.trim()) {
     toast('저장할 코드가 없습니다.', 'error');
     return;
@@ -212,40 +242,50 @@ btnSave.addEventListener('click', async () => {
     body: '현재 코드를 보드의 main.py로 저장할까요?\n저장하면 보드 전원을 켤 때마다 자동으로 실행됩니다.',
     confirmText: '저장',
   });
-  if (!ok) return;
+  if (!ok || !serial.connected) return;
   btnSave.disabled = true;
   try {
     await serial.saveFile('main.py', code);
     toast('main.py 저장 완료! 보드를 다시 켜면 자동 실행됩니다.', 'success');
     term.writeln('\r\n\x1b[32mmain.py 저장 완료.\x1b[0m');
   } catch (e) {
-    toast((e as Error).message, 'error');
-    term.writeln(`\r\n\x1b[31m${(e as Error).message}\x1b[0m`);
+    if (e instanceof AbortError) {
+      toast('저장이 중단되었습니다.');
+    } else {
+      toast((e as Error).message, 'error');
+      term.writeln(`\r\n\x1b[31m${(e as Error).message}\x1b[0m`);
+    }
   } finally {
-    btnSave.disabled = !serial.connected;
+    btnSave.disabled = serial.busy || !serial.connected;
   }
 });
 
 // ---------- 시작 가이드 모달 ----------
 const helpModal = $('help-modal');
-$('btn-help').addEventListener('click', () => {
+let helpHideTimer: ReturnType<typeof setTimeout> | undefined;
+let popHelpEscape: (() => void) | undefined;
+
+function openHelp(): void {
+  clearTimeout(helpHideTimer);
   helpModal.hidden = false;
   requestAnimationFrame(() => helpModal.classList.add('show'));
-});
-const closeHelp = () => {
+  popHelpEscape = pushEscapeHandler(closeHelp);
+}
+function closeHelp(): void {
+  popHelpEscape?.();
+  popHelpEscape = undefined;
   helpModal.classList.remove('show');
-  setTimeout(() => (helpModal.hidden = true), 180);
-};
+  helpHideTimer = setTimeout(() => (helpModal.hidden = true), 180);
+}
+$('btn-help').addEventListener('click', openHelp);
 $('help-close').addEventListener('click', closeHelp);
 helpModal.addEventListener('click', (e) => {
   if (e.target === helpModal) closeHelp();
 });
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !helpModal.hidden) closeHelp();
-});
 
 // ---------- 모드 전환 (액티비티 바) ----------
-let mode: Mode = (localStorage.getItem(STORAGE.mode) as Mode) || 'block';
+// 저장된 값은 신뢰하지 않는다 — 'block'/'text' 외의 값은 기본 'block'으로.
+let mode: Mode = localStorage.getItem(STORAGE.mode) === 'text' ? 'text' : 'block';
 
 const blockPane = $('block-pane');
 const textPane = $('text-pane');
@@ -260,7 +300,7 @@ const statusMode = $('status-mode');
 
 function applyMode(next: Mode): void {
   mode = next;
-  localStorage.setItem(STORAGE.mode, next);
+  safeSetItem(STORAGE.mode, next);
   blockPane.hidden = next !== 'block';
   textPane.hidden = next !== 'text';
   modeBlockBtn.classList.toggle('active', next === 'block');
@@ -307,7 +347,8 @@ function updatePreview(): void {
 }
 
 $('btn-copy-preview').addEventListener('click', async () => {
-  const code = generateBlockCode();
+  // 미리보기에 이미 표시된 코드를 재사용(빈 미리보기 문구는 제외)
+  const code = workspace.getAllBlocks(false).length ? previewEl.textContent ?? '' : '';
   if (!code.trim()) {
     toast('복사할 코드가 없습니다.', 'error');
     return;
@@ -325,14 +366,10 @@ workspace.addChangeListener((event) => {
   clearTimeout(previewTimer);
   previewTimer = setTimeout(() => {
     updatePreview();
-    try {
-      localStorage.setItem(
-        STORAGE.blocks,
-        JSON.stringify(Blockly.serialization.workspaces.save(workspace)),
-      );
-    } catch {
-      /* 저장 공간 부족 등은 무시 */
-    }
+    safeSetItem(
+      STORAGE.blocks,
+      JSON.stringify(Blockly.serialization.workspaces.save(workspace)),
+    );
   }, 250);
 });
 
@@ -345,26 +382,39 @@ splitter.addEventListener('pointerdown', (e) => {
   splitter.setPointerCapture(e.pointerId);
   splitter.classList.add('dragging');
 
-  const onMove = (ev: PointerEvent) => {
-    const h = Math.min(
-      Math.max(window.innerHeight - ev.clientY, 110),
-      Math.round(window.innerHeight * 0.7),
-    );
-    terminalPane.style.height = `${h}px`;
+  let latestH = terminalPane.offsetHeight;
+  let raf = 0;
+  const apply = () => {
+    raf = 0;
+    terminalPane.style.height = `${latestH}px`;
     fit.fit();
     if (mode === 'block') Blockly.svgResize(workspace);
   };
+  const onMove = (ev: PointerEvent) => {
+    latestH = Math.min(
+      Math.max(window.innerHeight - ev.clientY, 110),
+      Math.round(window.innerHeight * 0.7),
+    );
+    // pointermove는 초당 수십~수백 번 발생하므로 프레임당 한 번만 레이아웃 갱신
+    if (!raf) raf = requestAnimationFrame(apply);
+  };
+  // pointerup 뿐 아니라 pointercancel/lostpointercapture 도 처리해야
+  // 브라우저가 제스처를 가로챈(터치 스크롤 등) 경우에도 리스너가 남지 않는다.
   const onUp = () => {
+    if (raf) cancelAnimationFrame(raf);
     splitter.classList.remove('dragging');
     splitter.removeEventListener('pointermove', onMove);
     splitter.removeEventListener('pointerup', onUp);
+    splitter.removeEventListener('pointercancel', onUp);
+    splitter.removeEventListener('lostpointercapture', onUp);
   };
   splitter.addEventListener('pointermove', onMove);
   splitter.addEventListener('pointerup', onUp);
+  splitter.addEventListener('pointercancel', onUp);
+  splitter.addEventListener('lostpointercapture', onUp);
 });
 
 applyMode(mode);
-updatePreview();
 
 // E2E 테스트/콘솔 디버깅용 훅
 (window as unknown as Record<string, unknown>).__pico = { workspace, generateBlockCode };
