@@ -22,9 +22,11 @@ export function createEditor(
       python(),
       oneDark,
       EditorView.theme({
-        '&': { height: '100%', fontSize: '14px', backgroundColor: '#161a21' },
-        '.cm-gutters': { backgroundColor: '#161a21' },
-        '.cm-scroller': { fontFamily: "'JetBrains Mono', 'D2Coding', Consolas, monospace" },
+        '&': { height: '100%', fontSize: '14px', backgroundColor: '#1e1e1e' },
+        '.cm-gutters': { backgroundColor: '#1e1e1e' },
+        '.cm-scroller': {
+          fontFamily: "'Cascadia Code', 'JetBrains Mono', 'D2Coding', Consolas, monospace",
+        },
       }),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) onChange(update.state.doc.toString());

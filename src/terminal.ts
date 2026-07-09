@@ -6,14 +6,14 @@ import '@xterm/xterm/css/xterm.css';
 export function createTerminal(parent: HTMLElement): { term: Terminal; fit: FitAddon } {
   const term = new Terminal({
     fontSize: 13,
-    fontFamily: "'JetBrains Mono', 'D2Coding', Consolas, monospace",
+    fontFamily: "'Cascadia Code', 'JetBrains Mono', 'D2Coding', Consolas, monospace",
     cursorBlink: true,
     convertEol: true,
     theme: {
-      background: '#101318',
-      foreground: '#d8dee9',
-      cursor: '#88c0d0',
-      selectionBackground: '#3b4252',
+      background: '#1e1e1e',
+      foreground: '#cccccc',
+      cursor: '#aeafad',
+      selectionBackground: '#264f78',
     },
   });
   const fit = new FitAddon();

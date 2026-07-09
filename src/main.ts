@@ -44,21 +44,21 @@ const workspace = Blockly.inject('blockly-div', {
   renderer: 'zelos',
   // 외부 CDN 대신 로컬 미디어 사용 (오프라인 환경 지원)
   media: 'blockly-media/',
-  grid: { spacing: 24, length: 3, colour: '#232935', snap: true },
+  grid: { spacing: 24, length: 3, colour: '#2a2a2a', snap: true },
   zoom: { controls: true, wheel: true, startScale: 0.9 },
   trashcan: true,
-  theme: Blockly.Theme.defineTheme('picoDark', {
-    name: 'picoDark',
+  theme: Blockly.Theme.defineTheme('picoVscodeDark', {
+    name: 'picoVscodeDark',
     base: Blockly.Themes.Zelos,
     componentStyles: {
-      workspaceBackgroundColour: '#161a21',
-      toolboxBackgroundColour: '#101318',
-      toolboxForegroundColour: '#a9b3c4',
-      flyoutBackgroundColour: '#1d222c',
-      flyoutForegroundColour: '#a9b3c4',
+      workspaceBackgroundColour: '#1e1e1e',
+      toolboxBackgroundColour: '#252526',
+      toolboxForegroundColour: '#cccccc',
+      flyoutBackgroundColour: '#2d2d30',
+      flyoutForegroundColour: '#cccccc',
       flyoutOpacity: 0.97,
-      scrollbarColour: '#3a4252',
-      insertionMarkerColour: '#62a0e8',
+      scrollbarColour: '#4f4f4f',
+      insertionMarkerColour: '#3794ff',
     },
   }),
 });
@@ -92,25 +92,28 @@ const btnRun = $<HTMLButtonElement>('btn-run');
 const btnStop = $<HTMLButtonElement>('btn-stop');
 const btnSave = $<HTMLButtonElement>('btn-save');
 const btnSoftReset = $<HTMLButtonElement>('btn-soft-reset');
+const statusbar = $('statusbar');
 const statusEl = $('status');
+const statusConnectLabel = $('status-connect-label');
 
 function setRunning(running: boolean): void {
-  btnRun.classList.toggle('running', running);
   btnRun.disabled = running || !serial.connected;
-  btnRun.querySelector<HTMLElement>('.ic')!.hidden = running;
+  // SVG 요소는 hidden 속성이 동작하지 않으므로 display로 제어
+  btnRun.querySelector<HTMLElement>('.ic')!.style.display = running ? 'none' : '';
   btnRun.querySelector<HTMLElement>('.spinner')!.hidden = !running;
-  btnRun.querySelector<HTMLElement>('.btn-label')!.textContent = running ? '실행 중' : '실행';
+  statusbar.dataset.state = running ? 'run' : serial.connected ? 'on' : 'off';
+  statusEl.textContent = running ? '실행 중' : serial.connected ? '연결됨' : '연결 안 됨';
 }
 
 serial.onStateChange = (connected) => {
-  btnConnect.querySelector<HTMLElement>('.btn-label')!.textContent = connected
-    ? '연결 해제'
-    : '보드 연결';
-  btnConnect.classList.toggle('btn-primary', !connected);
+  btnConnect.title = connected ? '보드 연결 해제' : '보드 연결';
+  btnConnect.classList.toggle('connected', connected);
+  statusConnectLabel.textContent = connected ? '연결 해제' : '보드 연결';
   btnRun.disabled = !connected;
   btnStop.disabled = !connected;
   btnSave.disabled = !connected;
   btnSoftReset.disabled = !connected;
+  statusbar.dataset.state = connected ? 'on' : 'off';
   statusEl.textContent = connected ? '연결됨' : '연결 안 됨';
   statusEl.dataset.state = connected ? 'on' : 'off';
   if (!connected) {
@@ -129,7 +132,7 @@ term.onData((data) => {
   if (serial.connected && !serial.busy) serial.write(data).catch(() => {});
 });
 
-btnConnect.addEventListener('click', async () => {
+async function toggleConnect(): Promise<void> {
   try {
     if (serial.connected) {
       await serial.disconnect();
@@ -146,7 +149,10 @@ btnConnect.addEventListener('click', async () => {
       term.writeln(`\x1b[31m연결 실패: ${msg}\x1b[0m`);
     }
   }
-});
+}
+
+btnConnect.addEventListener('click', toggleConnect);
+$('status-connect').addEventListener('click', toggleConnect);
 
 async function runCode(): Promise<void> {
   if (!serial.connected || serial.busy) return;
@@ -250,7 +256,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !helpModal.hidden) closeHelp();
 });
 
-// ---------- 모드 전환 ----------
+// ---------- 모드 전환 (액티비티 바) ----------
 let mode: Mode = (localStorage.getItem(STORAGE.mode) as Mode) || 'block';
 
 const blockPane = $('block-pane');
@@ -259,6 +265,10 @@ const modeBlockBtn = $<HTMLButtonElement>('mode-block');
 const modeTextBtn = $<HTMLButtonElement>('mode-text');
 const previewEl = $('preview-code');
 const blockHint = $('block-hint');
+const tabLabel = $('tab-label');
+const tabIconBlock = $('tab-icon-block');
+const tabIconText = $('tab-icon-text');
+const statusMode = $('status-mode');
 
 function applyMode(next: Mode): void {
   mode = next;
@@ -267,6 +277,11 @@ function applyMode(next: Mode): void {
   textPane.hidden = next !== 'text';
   modeBlockBtn.classList.toggle('active', next === 'block');
   modeTextBtn.classList.toggle('active', next === 'text');
+  tabLabel.textContent = next === 'block' ? '블록 코딩' : 'main.py';
+  // SVG 요소는 hidden 속성이 동작하지 않으므로 display로 제어
+  tabIconBlock.style.display = next === 'block' ? '' : 'none';
+  tabIconText.style.display = next === 'text' ? '' : 'none';
+  statusMode.textContent = next === 'block' ? '블록 코딩' : '텍스트 코딩';
   if (next === 'block') {
     Blockly.svgResize(workspace);
     updatePreview();
