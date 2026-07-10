@@ -8,7 +8,7 @@ import { createTerminal } from './terminal';
 import { PicoSerial, AbortError } from './serial';
 import { samples, openSampleInNewTab } from './samples';
 import { highlightPython, TOKEN_CSS } from './highlight';
-import { toast, confirmDialog, pushEscapeHandler, isModalOpen } from './ui';
+import { toast, confirmDialog, promptDialog, pushEscapeHandler, isModalOpen } from './ui';
 import './style.css';
 
 // 코드 미리보기/샘플 뷰어가 공유하는 토큰 색상을 문서에 한 번 주입한다.
@@ -55,6 +55,27 @@ Blockly.setLocale(Ko as unknown as { [key: string]: string });
 definePicoBlocks();
 // 무한 루프 감지 트랩 비활성화 (MicroPython에는 해당 런타임이 없음)
 pythonGenerator.INFINITE_LOOP_TRAP = null;
+
+// Blockly 기본 브라우저 prompt/alert/confirm(변수 만들기·이름 바꾸기 등)을
+// 앱 디자인에 맞춘 커스텀 모달/토스트로 대체한다.
+Blockly.dialog.setPrompt((message, defaultValue, callback) => {
+  // '새 변수 이름:'(placeholder 없는 메시지)이면 만들기, 아니면 이름 바꾸기로 본다.
+  const creating = message === Blockly.Msg['NEW_VARIABLE_TITLE'];
+  void promptDialog({
+    title: creating ? '변수 만들기' : '변수 이름 바꾸기',
+    label: message,
+    defaultValue,
+    placeholder: creating ? '예: count, speed, sensor_value' : undefined,
+    confirmText: creating ? '만들기' : '바꾸기',
+  }).then(callback);
+});
+Blockly.dialog.setAlert((message, callback) => {
+  toast(message, 'error');
+  callback?.();
+});
+Blockly.dialog.setConfirm((message, callback) => {
+  void confirmDialog({ title: '확인', body: message }).then(callback);
+});
 
 const workspace = Blockly.inject('blockly-div', {
   toolbox,

@@ -735,6 +735,34 @@ button.status-item:hover {
   color: var(--vsc-blue-bright);
 }
 
+.modal-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--vsc-text-dim);
+}
+
+.modal-input {
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--vsc-editor);
+  border: 1px solid var(--vsc-border);
+  border-radius: 3px;
+  color: var(--vsc-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+
+.modal-input::placeholder {
+  color: var(--vsc-text-faint);
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: var(--vsc-blue);
+  box-shadow: 0 0 0 1px var(--vsc-blue);
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

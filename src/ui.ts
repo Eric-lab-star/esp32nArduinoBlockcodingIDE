@@ -54,6 +54,94 @@ export function toast(message: string, type: ToastType = 'info'): void {
   }, 3200);
 }
 
+export interface PromptOptions {
+  title: string;
+  /** 입력란 위에 표시할 안내 문구 */
+  label?: string;
+  defaultValue?: string;
+  placeholder?: string;
+  confirmText?: string;
+  cancelText?: string;
+}
+
+/**
+ * 텍스트 입력 모달 — 브라우저 기본 prompt() 대체.
+ * 확인 시 (앞뒤 공백 제거한) 입력값, 취소·빈 입력 시 null을 resolve 한다.
+ */
+export function promptDialog(opts: PromptOptions): Promise<string | null> {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+
+    const title = document.createElement('div');
+    title.className = 'modal-title';
+    title.textContent = opts.title;
+
+    const body = document.createElement('div');
+    body.className = 'modal-body';
+    if (opts.label) {
+      const label = document.createElement('label');
+      label.className = 'modal-label';
+      label.textContent = opts.label;
+      body.appendChild(label);
+    }
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'modal-input';
+    input.value = opts.defaultValue ?? '';
+    if (opts.placeholder) input.placeholder = opts.placeholder;
+    body.appendChild(input);
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn modal-cancel';
+    cancelBtn.textContent = opts.cancelText ?? '취소';
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn btn-primary modal-confirm';
+    confirmBtn.textContent = opts.confirmText ?? '확인';
+    actions.append(cancelBtn, confirmBtn);
+
+    modal.append(title, body, actions);
+    backdrop.appendChild(modal);
+
+    const popEscape = pushEscapeHandler(() => done(null));
+    const done = (value: string | null) => {
+      popEscape();
+      backdrop.classList.remove('show');
+      setTimeout(() => backdrop.remove(), 180);
+      resolve(value);
+    };
+    const submit = () => {
+      const value = input.value.trim();
+      done(value ? value : null);
+    };
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) done(null);
+    });
+    cancelBtn.addEventListener('click', () => done(null));
+    confirmBtn.addEventListener('click', submit);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submit();
+      }
+    });
+
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(() => {
+      backdrop.classList.add('show');
+      input.focus();
+      input.select();
+    });
+  });
+}
+
 export interface ConfirmOptions {
   title: string;
   body: string;
