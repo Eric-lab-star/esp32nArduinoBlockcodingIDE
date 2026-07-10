@@ -17,6 +17,7 @@ const PALETTE = {
   text: ['#EC4466', '#D93A5B', '#BC3150'],
   vars: ['#EE6E54', '#DE5B41', '#C24E37'],
   func: ['#A05CE0', '#8E49D0', '#7A3DB4'],
+  lcd: ['#6C7AE0', '#5866C9', '#4A57B0'],
 } as const;
 
 type Triple = readonly [string, string, string];
@@ -33,6 +34,7 @@ export const picoTheme = Blockly.Theme.defineTheme('picoEntry', {
   base: Blockly.Themes.Zelos,
   blockStyles: {
     pico_blocks: blockStyle(PALETTE.pico),
+    lcd_blocks: blockStyle(PALETTE.lcd),
     flow_blocks: blockStyle(PALETTE.flow),
     logic_blocks: blockStyle(PALETTE.logic),
     loop_blocks: blockStyle(PALETTE.flow),
@@ -44,6 +46,7 @@ export const picoTheme = Blockly.Theme.defineTheme('picoEntry', {
   },
   categoryStyles: {
     pico_category: { colour: PALETTE.pico[0] },
+    lcd_category: { colour: PALETTE.lcd[0] },
     logic_category: { colour: PALETTE.logic[0] },
     loop_category: { colour: PALETTE.flow[0] },
     math_category: { colour: PALETTE.math[0] },
