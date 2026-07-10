@@ -464,5 +464,13 @@ for (const sample of samples) {
 
 applyMode(mode);
 
+// 초기화가 모두 끝났으니 로딩 화면을 감추고 앱을 드러낸다.
+// 레이아웃이 한 프레임 정착한 뒤 전환해 workspace가 덜 그려진 채로 번쩍이지 않게 한다.
+requestAnimationFrame(() => {
+  document.body.classList.add('app-ready');
+  Blockly.svgResize(workspace);
+  fit.fit();
+});
+
 // E2E 테스트/콘솔 디버깅용 훅
 (window as unknown as Record<string, unknown>).__pico = { workspace, generateBlockCode };

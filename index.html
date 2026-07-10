@@ -5,8 +5,92 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐍</text></svg>" />
     <title>피코 파이썬 IDE — 라즈베리파이 피코 블록/텍스트 코딩</title>
+    <!--
+      크리티컬 CSS: 메인 CSS와 앱 로직은 main.ts에서 JS 모듈로 로드되므로,
+      로드가 끝나기 전에는 스타일이 없는 절반짜리 화면이 잠깐 보인다(FOUC).
+      그래서 첫 페인트에서 #app 을 숨기고 로딩 화면(#app-loading)만 보여준 뒤,
+      JS 초기화가 끝나면(body.app-ready) 로딩 화면을 감추고 앱을 드러낸다.
+      viewBox만 있고 크기가 없는 SVG 아이콘의 거대화도 함께 방지한다.
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #1e1e1e;
+        color: #cccccc;
+        font-family: -apple-system, 'Segoe UI', 'Pretendard', 'Noto Sans KR', sans-serif;
+      }
+      /* JS 초기화 완료(body.app-ready) 전까지 앱 본체를 감춘다.
+         display:none 이 아니라 visibility:hidden 이라 레이아웃 크기는 유지되어
+         Blockly·터미널이 컨테이너 크기를 올바로 측정할 수 있다. */
+      #app {
+        visibility: hidden;
+      }
+      body.app-ready #app {
+        visibility: visible;
+      }
+      body.app-ready #app-loading {
+        display: none;
+      }
+      #app-loading {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: #1e1e1e;
+        color: #9d9d9d;
+      }
+      #app-loading .app-loading-logo {
+        font-size: 44px;
+        line-height: 1;
+      }
+      #app-loading .app-loading-spinner {
+        width: 34px;
+        height: 34px;
+        border: 3px solid #3a3d41;
+        border-top-color: #3794ff;
+        border-radius: 50%;
+        animation: app-spin 0.8s linear infinite;
+      }
+      #app-loading .app-loading-text {
+        font-size: 13px;
+        letter-spacing: 0.02em;
+      }
+      @keyframes app-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #app-loading .app-loading-spinner {
+          animation-duration: 2s;
+        }
+      }
+      .ic {
+        width: 16px;
+        height: 16px;
+        flex: none;
+      }
+      .ic-lg {
+        width: 24px;
+        height: 24px;
+        flex: none;
+      }
+    </style>
   </head>
   <body>
+    <!-- JS 로드/초기화 중 표시되는 로딩 화면. body.app-ready 가 붙으면 사라진다. -->
+    <div id="app-loading">
+      <div class="app-loading-logo">🐍</div>
+      <div class="app-loading-spinner"></div>
+      <div class="app-loading-text">피코 파이썬 IDE 불러오는 중…</div>
+    </div>
+
     <div id="app">
       <div id="titlebar">
         <span class="titlebar-side"><span id="logo-badge">🐍</span></span>
