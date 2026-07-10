@@ -18,6 +18,13 @@ const PALETTE = {
   vars: ['#EE6E54', '#DE5B41', '#C24E37'],
   func: ['#A05CE0', '#8E49D0', '#7A3DB4'],
   lcd: ['#6C7AE0', '#5866C9', '#4A57B0'],
+  input: ['#4DB6AC', '#3EA79C', '#33897F'],
+  time: ['#7E8CA0', '#6B788B', '#586374'],
+  sound: ['#E86FB0', '#D85CA0', '#BC4E88'],
+  sensor: ['#3FB984', '#33A473', '#2A895F'],
+  neopixel: ['#B06CE0', '#9E5AD0', '#864CB4'],
+  comm: ['#E0A93C', '#CE982B', '#B07F22'],
+  system: ['#8A939B', '#77808A', '#636B74'],
 } as const;
 
 type Triple = readonly [string, string, string];
@@ -43,6 +50,13 @@ export const picoTheme = Blockly.Theme.defineTheme('picoEntry', {
     variable_blocks: blockStyle(PALETTE.vars),
     variable_dynamic_blocks: blockStyle(PALETTE.vars),
     procedure_blocks: blockStyle(PALETTE.func),
+    input_blocks: blockStyle(PALETTE.input),
+    time_blocks: blockStyle(PALETTE.time),
+    sound_blocks: blockStyle(PALETTE.sound),
+    sensor_blocks: blockStyle(PALETTE.sensor),
+    neopixel_blocks: blockStyle(PALETTE.neopixel),
+    comm_blocks: blockStyle(PALETTE.comm),
+    system_blocks: blockStyle(PALETTE.system),
   },
   categoryStyles: {
     pico_category: { colour: PALETTE.pico[0] },
@@ -53,6 +67,13 @@ export const picoTheme = Blockly.Theme.defineTheme('picoEntry', {
     text_category: { colour: PALETTE.text[0] },
     variable_category: { colour: PALETTE.vars[0] },
     procedure_category: { colour: PALETTE.func[0] },
+    input_category: { colour: PALETTE.input[0] },
+    time_category: { colour: PALETTE.time[0] },
+    sound_category: { colour: PALETTE.sound[0] },
+    sensor_category: { colour: PALETTE.sensor[0] },
+    neopixel_category: { colour: PALETTE.neopixel[0] },
+    comm_category: { colour: PALETTE.comm[0] },
+    system_category: { colour: PALETTE.system[0] },
   },
   componentStyles: {
     workspaceBackgroundColour: '#1e1e1e',
