@@ -134,6 +134,18 @@ export function definePicoBlocks(): void {
       tooltip: '지정한 핀에 PWM 신호를 출력합니다 (0~100%). LED 밝기, 모터 속도 등에 사용합니다.',
     },
     {
+      type: 'pico_servo',
+      message0: '서보모터 GP %1 핀 각도 %2 도',
+      args0: [
+        { type: 'field_number', name: 'PIN', value: 0, min: 0, max: 28, precision: 1 },
+        { type: 'input_value', name: 'ANGLE', check: 'Number' },
+      ],
+      previousStatement: null,
+      nextStatement: null,
+      style: 'pico_blocks',
+      tooltip: '서보모터를 지정한 각도(0~180도)로 회전시킵니다. SG90 등 표준 서보 기준입니다.',
+    },
+    {
       type: 'pico_adc_read',
       message0: '%1 핀 아날로그 입력값 (0~65535)',
       args0: [
@@ -289,6 +301,15 @@ export function definePicoBlocks(): void {
     return `pwm_${pin}.duty_u16(min(65535, max(0, int(${duty} * 65535 / 100))))\n`;
   };
 
+  forBlock['pico_servo'] = (block, generator) => {
+    importMachine(generator);
+    const pin = block.getFieldValue('PIN');
+    const angle = generator.valueToCode(block, 'ANGLE', Order.NONE) || '90';
+    // 표준 서보: 50Hz, 각도 0~180도 → 펄스 0.5~2.5ms(500000~2500000ns)
+    addDefinition(generator, `def_servo_${pin}`, `servo_${pin} = PWM(Pin(${pin}), freq=50)`);
+    return `servo_${pin}.duty_ns(int(500000 + max(0, min(180, ${angle})) * 2000000 / 180))\n`;
+  };
+
   forBlock['pico_adc_read'] = (block, generator) => {
     importMachine(generator);
     const pin = block.getFieldValue('PIN');
@@ -368,6 +389,7 @@ export const toolbox = {
         { kind: 'block', type: 'pico_digital_write' },
         { kind: 'block', type: 'pico_digital_read' },
         { kind: 'block', type: 'pico_pwm', inputs: { DUTY: num(50) } },
+        { kind: 'block', type: 'pico_servo', inputs: { ANGLE: num(90) } },
         { kind: 'block', type: 'pico_adc_read' },
         { kind: 'block', type: 'pico_temp' },
       ],
