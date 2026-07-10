@@ -87,6 +87,53 @@ const NOTE_FREQ: Record<string, string> = {
   C5: '523',
 };
 
+/**
+ * L298N 듀얼 H-브리지 모터 드라이버용 헬퍼 클래스.
+ * 방향 핀 2개(IN1/IN2)로 회전 방향을, 속도 핀(EN)의 PWM으로 속도를 제어한다.
+ * 모터 블록을 쓰면 이 클래스를 프로그램 서두에 함께 넣어 별도 라이브러리 없이 동작한다.
+ */
+const L298N_DRIVER = [
+  'class Motor:',
+  '    def __init__(self, in1, in2, en):',
+  '        self.in1 = Pin(in1, Pin.OUT)',
+  '        self.in2 = Pin(in2, Pin.OUT)',
+  '        self.en = PWM(Pin(en), freq=1000)',
+  '    def run(self, direction, speed):',
+  '        duty = min(65535, max(0, int(speed * 65535 / 100)))',
+  '        self.in1.value(1 if direction > 0 else 0)',
+  '        self.in2.value(0 if direction > 0 else 1)',
+  '        self.en.duty_u16(duty)',
+  '    def stop(self):',
+  '        self.in1.value(0)',
+  '        self.in2.value(0)',
+  '        self.en.duty_u16(0)',
+].join('\n');
+
+/**
+ * DRV8833/DRV8871용 헬퍼 클래스.
+ * L298N과 달리 enable 핀이 없어, 입력 2핀에 각각 PWM을 넣어 방향과 속도를 함께 정한다.
+ * run()/stop() 인터페이스는 Motor와 같아 회전/정지 블록을 그대로 쓸 수 있다.
+ */
+const DRV8833_DRIVER = [
+  'class MotorPwm:',
+  '    def __init__(self, in1, in2):',
+  '        self.p1 = PWM(Pin(in1), freq=1000)',
+  '        self.p2 = PWM(Pin(in2), freq=1000)',
+  '    def run(self, direction, speed):',
+  '        duty = min(65535, max(0, int(speed * 65535 / 100)))',
+  '        self.p1.duty_u16(duty if direction > 0 else 0)',
+  '        self.p2.duty_u16(0 if direction > 0 else duty)',
+  '    def stop(self):',
+  '        self.p1.duty_u16(0)',
+  '        self.p2.duty_u16(0)',
+].join('\n');
+
+/** 모터 블록이 필요로 하는 import와 드라이버 클래스를 프로그램 서두에 추가 */
+function motorSetup(generator: PythonGenerator): void {
+  importMachine(generator);
+  addDefinition(generator, 'class_motor', L298N_DRIVER);
+}
+
 export function definePicoBlocks(): void {
   Blockly.defineBlocksWithJsonArray([
     {
@@ -651,6 +698,74 @@ export function definePicoBlocks(): void {
       style: 'system_blocks',
       tooltip: '보드마다 다른 고유 식별자를 16진수 문자열로 돌려줍니다.',
     },
+    // ---------- 모터 (L298N) ----------
+    {
+      type: 'pico_motor_setup',
+      message0: '모터 %1 드라이버(L298N) 연결',
+      message1: '방향핀 IN1 GP %1 IN2 GP %2 속도핀 EN GP %3',
+      args0: [
+        { type: 'field_number', name: 'NUM', value: 1, min: 1, max: 20, precision: 1 },
+      ],
+      args1: [
+        { type: 'field_number', name: 'IN1', value: 2, min: 0, max: 28, precision: 1 },
+        { type: 'field_number', name: 'IN2', value: 3, min: 0, max: 28, precision: 1 },
+        { type: 'field_number', name: 'EN', value: 4, min: 0, max: 28, precision: 1 },
+      ],
+      previousStatement: null,
+      nextStatement: null,
+      style: 'motor_blocks',
+      tooltip:
+        'L298N/L293D 드라이버의 한 채널(모터 하나)을 연결합니다. 모터마다 다른 번호를 붙이세요 — 드라이버가 여러 개여도 번호만 다르게 하면 됩니다(예: 첫 드라이버 1·2, 둘째 3·4). IN1·IN2는 방향, EN은 속도 핀입니다(L298N은 ENA/ENB 점퍼를 빼세요). 회전/정지 블록보다 먼저 실행하세요.',
+    },
+    {
+      type: 'pico_motor_setup_drv8833',
+      message0: '모터 %1 드라이버(DRV8833) 연결',
+      message1: '입력핀 IN1 GP %1 IN2 GP %2',
+      args0: [
+        { type: 'field_number', name: 'NUM', value: 1, min: 1, max: 20, precision: 1 },
+      ],
+      args1: [
+        { type: 'field_number', name: 'IN1', value: 2, min: 0, max: 28, precision: 1 },
+        { type: 'field_number', name: 'IN2', value: 3, min: 0, max: 28, precision: 1 },
+      ],
+      previousStatement: null,
+      nextStatement: null,
+      style: 'motor_blocks',
+      tooltip:
+        'DRV8833/DRV8871 드라이버의 한 채널(모터 하나)을 연결합니다. 입력 2핀에 PWM으로 방향·속도를 함께 제어하며 별도 EN 핀이 없습니다. 모터마다 다른 번호를 붙이세요. 회전/정지 블록보다 먼저 실행하세요.',
+    },
+    {
+      type: 'pico_motor_run',
+      message0: '모터 %1 %2 속도 %3 %%',
+      args0: [
+        { type: 'field_number', name: 'NUM', value: 1, min: 1, max: 20, precision: 1 },
+        {
+          type: 'field_dropdown',
+          name: 'DIR',
+          options: [
+            ['앞으로', '1'],
+            ['뒤로', '-1'],
+          ],
+        },
+        { type: 'input_value', name: 'SPEED', check: 'Number' },
+      ],
+      inputsInline: true,
+      previousStatement: null,
+      nextStatement: null,
+      style: 'motor_blocks',
+      tooltip: '모터를 지정한 방향으로 지정한 속도(0~100%)로 돌립니다.',
+    },
+    {
+      type: 'pico_motor_stop',
+      message0: '모터 %1 정지',
+      args0: [
+        { type: 'field_number', name: 'NUM', value: 1, min: 1, max: 20, precision: 1 },
+      ],
+      previousStatement: null,
+      nextStatement: null,
+      style: 'motor_blocks',
+      tooltip: '모터를 멈춥니다.',
+    },
   ]);
 
   const forBlock = pythonGenerator.forBlock;
@@ -1005,6 +1120,36 @@ export function definePicoBlocks(): void {
     addDefinition(generator, 'import_ubinascii', 'import ubinascii');
     return ['ubinascii.hexlify(machine.unique_id()).decode()', Order.FUNCTION_CALL];
   };
+
+  // ---------- 모터 (L298N) ----------
+  forBlock['pico_motor_setup'] = (block, generator) => {
+    motorSetup(generator);
+    const m = block.getFieldValue('NUM');
+    const in1 = block.getFieldValue('IN1');
+    const in2 = block.getFieldValue('IN2');
+    const en = block.getFieldValue('EN');
+    return `motor_${m} = Motor(${in1}, ${in2}, ${en})\n`;
+  };
+
+  forBlock['pico_motor_setup_drv8833'] = (block, generator) => {
+    importMachine(generator);
+    addDefinition(generator, 'class_motor_pwm', DRV8833_DRIVER);
+    const m = block.getFieldValue('NUM');
+    const in1 = block.getFieldValue('IN1');
+    const in2 = block.getFieldValue('IN2');
+    return `motor_${m} = MotorPwm(${in1}, ${in2})\n`;
+  };
+
+  forBlock['pico_motor_run'] = (block, generator) => {
+    const m = block.getFieldValue('NUM');
+    const dir = block.getFieldValue('DIR');
+    const speed = generator.valueToCode(block, 'SPEED', Order.NONE) || '0';
+    return `motor_${m}.run(${dir}, ${speed})\n`;
+  };
+
+  forBlock['pico_motor_stop'] = (block) => {
+    return `motor_${block.getFieldValue('NUM')}.stop()\n`;
+  };
 }
 
 /** 숫자 shadow 블록 헬퍼 */
@@ -1121,6 +1266,17 @@ export const toolbox = {
         { kind: 'block', type: 'pico_uart_any' },
         { kind: 'block', type: 'pico_uart_read' },
         { kind: 'block', type: 'pico_i2c_scan' },
+      ],
+    },
+    {
+      kind: 'category',
+      name: '모터',
+      categorystyle: 'motor_category',
+      contents: [
+        { kind: 'block', type: 'pico_motor_setup' },
+        { kind: 'block', type: 'pico_motor_setup_drv8833' },
+        { kind: 'block', type: 'pico_motor_run', inputs: { SPEED: num(60) } },
+        { kind: 'block', type: 'pico_motor_stop' },
       ],
     },
     {

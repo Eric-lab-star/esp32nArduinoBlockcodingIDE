@@ -25,6 +25,7 @@ const PALETTE = {
   neopixel: ['#B06CE0', '#9E5AD0', '#864CB4'],
   comm: ['#E0A93C', '#CE982B', '#B07F22'],
   system: ['#8A939B', '#77808A', '#636B74'],
+  motor: ['#E0685B', '#CE5749', '#B0483C'],
 } as const;
 
 type Triple = readonly [string, string, string];
@@ -57,6 +58,7 @@ export const picoTheme = Blockly.Theme.defineTheme('picoEntry', {
     neopixel_blocks: blockStyle(PALETTE.neopixel),
     comm_blocks: blockStyle(PALETTE.comm),
     system_blocks: blockStyle(PALETTE.system),
+    motor_blocks: blockStyle(PALETTE.motor),
   },
   categoryStyles: {
     pico_category: { colour: PALETTE.pico[0] },
@@ -74,6 +76,7 @@ export const picoTheme = Blockly.Theme.defineTheme('picoEntry', {
     neopixel_category: { colour: PALETTE.neopixel[0] },
     comm_category: { colour: PALETTE.comm[0] },
     system_category: { colour: PALETTE.system[0] },
+    motor_category: { colour: PALETTE.motor[0] },
   },
   componentStyles: {
     workspaceBackgroundColour: '#1e1e1e',
