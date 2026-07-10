@@ -121,6 +121,76 @@ body {
   flex: none;
 }
 
+/* ---------- 샘플 툴바 ---------- */
+#sample-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  height: 40px;
+  padding: 0 12px;
+  background: var(--vsc-tabbar);
+  border-bottom: 1px solid var(--vsc-panel-border);
+  overflow-x: auto;
+  user-select: none;
+}
+
+#sample-toolbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vsc-text-dim);
+}
+
+#sample-toolbar-label .ic {
+  width: 14px;
+  height: 14px;
+}
+
+#sample-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sample-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid var(--vsc-border);
+  border-radius: 13px;
+  background: var(--vsc-btn-secondary);
+  color: var(--vsc-text);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.sample-btn:hover {
+  background: var(--vsc-hover);
+  border-color: var(--vsc-blue);
+}
+
+.sample-btn:focus-visible {
+  outline: 1px solid var(--vsc-blue-bright);
+  outline-offset: 1px;
+}
+
+.sample-btn-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
 /* ---------- 본문 레이아웃 ---------- */
 #body {
   flex: 1;
@@ -386,7 +456,7 @@ body {
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.55;
-  color: #6a9955;
+  color: var(--vsc-text);
   white-space: pre;
 }
 
@@ -725,16 +795,25 @@ button.status-item:hover {
 
 /* ---------- Blockly 툴박스 (엔트리 느낌으로) ---------- */
 .blocklyToolboxCategoryGroup {
-  padding: 6px 0;
+  padding: 6px 2px;
 }
 
 .blocklyToolboxCategory {
+  display: flex;
+  align-items: center;
   border-left-width: 5px !important;
   border-radius: 0 6px 6px 0;
   margin: 3px 8px 3px 0;
-  padding: 4px 2px;
+  padding: 7px 2px;
   cursor: pointer;
   transition: background 0.1s;
+}
+
+/* 카테고리 내부 아이콘 + 라벨 행도 세로 중앙 정렬 */
+.blocklyToolboxCategory .blocklyToolboxCategoryContent {
+  display: flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .blocklyToolboxCategory:hover {
@@ -750,6 +829,7 @@ button.status-item:hover {
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 700;
+  line-height: 1;
 }
 
 /* 블록 텍스트가 한글 굵은 글꼴로 또렷하게 보이도록 */

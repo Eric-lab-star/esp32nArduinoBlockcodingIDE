@@ -6,8 +6,15 @@ import { picoTheme, registerEntryRenderer } from './theme';
 import { createEditor } from './editor';
 import { createTerminal } from './terminal';
 import { PicoSerial, AbortError } from './serial';
+import { samples, openSampleInNewTab } from './samples';
+import { highlightPython, TOKEN_CSS } from './highlight';
 import { toast, confirmDialog, pushEscapeHandler, isModalOpen } from './ui';
 import './style.css';
+
+// 코드 미리보기/샘플 뷰어가 공유하는 토큰 색상을 문서에 한 번 주입한다.
+const tokenStyle = document.createElement('style');
+tokenStyle.textContent = TOKEN_CSS;
+document.head.appendChild(tokenStyle);
 
 type Mode = 'block' | 'text';
 
@@ -342,7 +349,11 @@ let previewTimer: ReturnType<typeof setTimeout> | undefined;
 
 function updatePreview(): void {
   const code = generateBlockCode();
-  previewEl.textContent = code || '# 블록을 조립하면\n# 파이썬 코드가 여기에 표시됩니다';
+  // innerHTML이지만 highlightPython이 모든 텍스트를 이스케이프하므로 안전하다.
+  // 복사 버튼은 previewEl.textContent(원본 코드)를 그대로 읽어 영향이 없다.
+  previewEl.innerHTML = highlightPython(
+    code || '# 블록을 조립하면\n# 파이썬 코드가 여기에 표시됩니다',
+  );
   blockHint.hidden = workspace.getAllBlocks(false).length > 0;
 }
 
@@ -413,6 +424,22 @@ splitter.addEventListener('pointerdown', (e) => {
   splitter.addEventListener('pointercancel', onUp);
   splitter.addEventListener('lostpointercapture', onUp);
 });
+
+// ---------- 샘플 툴바 ----------
+// 각 예제를 버튼으로 만들고, 클릭하면 읽기 전용 코드를 브라우저 새 탭에서 연다.
+const sampleButtons = $('sample-buttons');
+for (const sample of samples) {
+  const btn = document.createElement('button');
+  btn.className = 'sample-btn';
+  btn.title = sample.description;
+  btn.innerHTML = `<span class="sample-btn-icon">${sample.icon}</span>${sample.title}`;
+  btn.addEventListener('click', () => {
+    if (!openSampleInNewTab(sample)) {
+      toast('팝업이 차단되어 예제를 열 수 없습니다. 팝업을 허용해 주세요.', 'error');
+    }
+  });
+  sampleButtons.appendChild(btn);
+}
 
 applyMode(mode);
 
